@@ -97,10 +97,11 @@ textarea{min-height:115px;resize:vertical}
 </section>
 </main>
 
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <script>
 "use strict";
 var CK="hoisapo2_children_v5",RK="hoisapo2_records_v5";
-var children=JSON.parse(localStorage.getItem(CK)||'["桜田淳子"]');
+var children=JSON.parse(localStorage.getItem(CK)||'["桜田 淳子"]');
 var records=JSON.parse(localStorage.getItem(RK)||"[]");
 var editingId=null;
 
@@ -175,7 +176,7 @@ function deleteChild(){
  if(!confirm("「"+name+"」を消去します。\nこの児童に紐づく訪問記録 "+count+" 件もすべて消去されます。\n\nこの操作は元に戻せません。\n\n消去しますか？"))return;
  children=children.filter(function(n){return n!==name});
  records=records.filter(function(r){return r.child!==name});
- if(!children.length)children=["桜田淳子"];
+ if(!children.length)children=["桜田 淳子"];
  persist();renderChildren();newRecord();status("児童名と、その児童の記録を消去しました。")
 }
 function newRecord(){
@@ -201,75 +202,56 @@ function fileName(){
  return first+"_"+d+".xlsx";
 }
 
-/* Excel 2007+ の最小構成をBlobとして生成。
-   現段階では記録内容を1シートに配置する。
-   次段階で実際の原本セル位置へ差し替える。 */
-function esc(s){
- return String(s??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&apos;");
+/* Excel出力：個人情報を除いた原本テンプレートを読み込み、正規のXLSXとして保存します。 */
+function fileName(){
+ var full=$("child").value.trim();
+ var parts=full.split(/[\s　]+/).filter(Boolean);
+ var first=parts.length>=2?parts[parts.length-1]:full;
+ var d=$("date").value.replace(/-/g,"").slice(2);
+ return first+"_"+d+".xlsx";
 }
-function cell(ref,val){
- return '<c r="'+ref+'" t="inlineStr"><is><t xml:space="preserve">'+esc(val)+'</t></is></c>'
+function ymdJP(iso){
+ var m=iso.match(/^(\d{4})-(\d{2})-(\d{2})$/); if(!m)return null;
+ var y=+m[1],mo=+m[2],da=+m[3];
+ return {year:y,reiwa:y-2018,month:mo,day:da,weekday:["日","月","火","水","木","金","土"][new Date(y,mo-1,da).getDay()]};
 }
-function makeSheet(){
- var r='<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>';
- r+='<row r="1">'+cell("A1","ほいサポ訪問記録")+'</row>';
- r+='<row r="2">'+cell("A2","対象児") + cell("B2",$("child").value)+'</row>';
- r+='<row r="3">'+cell("A3","訪問日") + cell("B3",$("date").value)+'</row>';
- r+='<row r="5">'+cell("A5","① 学級・学校の様子")+'</row>';
- r+='<row r="6">'+cell("A6",$("school").value)+'</row>';
- r+='<row r="8">'+cell("A8","② 直接支援")+'</row>';
- r+='<row r="9">'+cell("A9",$("direct").value)+'</row>';
- r+='<row r="11">'+cell("A11","③ 間接支援")+'</row>';
- r+='<row r="12">'+cell("A12",$("indirect").value)+'</row>';
- r+='</sheetData></worksheet>';return r
-}
-function makeXlsx(){
- var files={};
- files["[Content_Types].xml"]='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/></Types>';
- files["_rels/.rels"]='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>';
- files["xl/workbook.xml"]='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="訪問記録" sheetId="1" r:id="rId1"/></sheets></workbook>';
- files["xl/_rels/workbook.xml.rels"]='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/></Relationships>';
- files["xl/worksheets/sheet1.xml"]=makeSheet();
- return files
-}
+async function exportExcel(){
+ if(!$('child').value||!$('date').value){status('対象児と訪問日を確認してください。');return}
+ if(typeof XLSX==='undefined'){status('Excel出力機能の読み込みに失敗しました。通信状態を確認してください。');return}
+ try{
+  status('Excelを作成しています…');
+  var res=await fetch('./hoisapo_template.xlsx',{cache:'no-store'});
+  if(!res.ok)throw new Error('template '+res.status);
+  var buf=await res.arrayBuffer();
+  var wb=XLSX.read(buf,{type:'array',cellStyles:true,cellNF:true,cellDates:true});
+  var ws=wb.Sheets['記録テンプレート']||wb.Sheets[wb.SheetNames[0]];
+  var d=ymdJP($('date').value);
+  if(!d)throw new Error('date');
+  var child=$('child').value.trim();
+  // シート名：YYMMDD＋下の名前
+  var sheetName=$('date').value.replace(/-/g,'').slice(2)+child.split(/[\s　]+/).filter(Boolean).slice(-1)[0];
+  sheetName=sheetName.slice(0,31);
+  wb.SheetNames=[sheetName]; wb.Sheets[sheetName]=ws; delete wb.Sheets['記録テンプレート'];
 
-/* ZIP writer: uncompressed ZIP, sufficient for Excel's Open Packaging Convention. */
-function u16(n){return [n&255,(n>>>8)&255]}
-function u32(n){return [n&255,(n>>>8)&255,(n>>>16)&255,(n>>>24)&255]}
-function crc32(buf){
- var table=crc32.table;if(!table){table=[];for(var n=0;n<256;n++){var c=n;for(var k=0;k<8;k++)c=(c&1)?(0xedb88320^(c>>>1)):(c>>>1);table[n]=c>>>0}crc32.table=table}
- var c=0xffffffff;for(var i=0;i<buf.length;i++)c=table[(c^buf[i])&255]^(c>>>8);return (c^0xffffffff)>>>0
-}
-function strBytes(s){return new TextEncoder().encode(s)}
-function makeZip(files){
- var parts=[],central=[],offset=0;
- Object.keys(files).forEach(function(name){
-  var nb=strBytes(name),data=strBytes(files[name]),crc=crc32(data);
-  var local=new Uint8Array([80,75,3,4,20,0,0,0,0,0,0,0,0,0,...u32(crc),...u32(data.length),...u32(data.length),...u16(nb.length),0,...nb,...data]);
-  parts.push(local);central.push({nb:nb,crc:crc,len:data.length,off:offset});offset+=local.length
- });
- var cd=[];
- central.forEach(function(x){
-  cd.push(new Uint8Array([
-   80,75,1,2,
-   20,0,20,0,0,0,0,0,0,0,
-   ...u32(x.crc),...u32(x.len),...u32(x.len),
-   ...u16(x.nb.length),0,0,0,0,0,0,
-   0,0,0,0,
-   ...u32(x.off),...x.nb
-  ]));
- });
- var cdBytes=concat(cd),body=concat(parts);
- var end=new Uint8Array([80,75,5,6,0,0,0,0,...u16(central.length),...u16(central.length),...u32(cdBytes.length),...u32(body.length),0,0]);
- return new Blob([body,cdBytes,end],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"})
-}
-function concat(arrs){var n=arrs.reduce(function(a,b){return a+b.length},0),out=new Uint8Array(n),p=0;arrs.forEach(function(a){out.set(a,p);p+=a.length});return out}
-function exportExcel(){
- if(!$("child").value||!$("date").value){status("対象児と訪問日を確認してください。");return}
- var blob=makeZip(makeXlsx()),url=URL.createObjectURL(blob),a=document.createElement("a");
- a.href=url;a.download=fileName();document.body.appendChild(a);a.click();a.remove();
- setTimeout(function(){URL.revokeObjectURL(url)},1000);
- status("Excelを出力しました。\nファイル名："+fileName())
+  // 原本の位置に記録内容を入れる
+  ws['A4']={t:'s',v:'対象児：'+child};
+  ws['N4']={t:'s',v:'令和'}; ws['P4']={t:'n',v:d.reiwa}; ws['R4']={t:'s',v:'年'};
+  ws['S4']={t:'n',v:d.month}; ws['U4']={t:'s',v:'月'}; ws['V4']={t:'n',v:d.day}; ws['X4']={t:'s',v:'日'};
+  ws['Y4']={t:'s',v:'('}; ws['Z4']={t:'s',v:d.weekday}; ws['AB4']={t:'s',v:')'};
+  ws['C8']={t:'s',v:$('school').value||''};
+  ws['C11']={t:'s',v:''};
+  ws['C16']={t:'s',v:$('direct').value||''};
+  ws['C21']={t:'s',v:''};
+  ws['D28']={t:'s',v:$('indirect').value||''};
+  ws['D34']={t:'s',v:''};
+  // 作成時刻などの不要なメタ情報は追加しない
+  var out=XLSX.write(wb,{bookType:'xlsx',type:'array',cellStyles:true,compression:true});
+  var blob=new Blob([out],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  var url=URL.createObjectURL(blob),a=document.createElement('a');
+  a.href=url;a.download=fileName();document.body.appendChild(a);a.click();a.remove();
+  setTimeout(function(){URL.revokeObjectURL(url)},2000);
+  status('Excelを出力しました。ファイル名：'+fileName());
+ }catch(e){console.error(e);status('Excel出力でエラーが発生しました。テンプレートがGitHubにアップロードされているか確認してください。');}
 }
 
 $("recordTab").onclick=function(){show("recordPage")};
