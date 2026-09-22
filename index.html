@@ -249,7 +249,16 @@ function makeZip(files){
   parts.push(local);central.push({nb:nb,crc:crc,len:data.length,off:offset});offset+=local.length
  });
  var cd=[];
- central.forEach(function(x){cd.push(new Uint8Array([80,75,1,2,20,0,20,0,0,0,0,0,0,0,...u32(x.crc),...u32(x.len),...u32(x.len),...u16(x.nb.length),0,0,0,0,0,0,...u32(x.off),...x.nb]))});
+ central.forEach(function(x){
+  cd.push(new Uint8Array([
+   80,75,1,2,
+   20,0,20,0,0,0,0,0,0,0,
+   ...u32(x.crc),...u32(x.len),...u32(x.len),
+   ...u16(x.nb.length),0,0,0,0,0,0,
+   0,0,0,0,
+   ...u32(x.off),...x.nb
+  ]));
+ });
  var cdBytes=concat(cd),body=concat(parts);
  var end=new Uint8Array([80,75,5,6,0,0,0,0,...u16(central.length),...u16(central.length),...u32(cdBytes.length),...u32(body.length),0,0]);
  return new Blob([body,cdBytes,end],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"})
