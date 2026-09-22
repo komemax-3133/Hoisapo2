@@ -1,24 +1,23 @@
-<!doctype html>
-<html lang="ja"><head>
+<!doctype html><html lang="ja"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="theme-color" content="#4f7cac"><link rel="manifest" href="manifest.webmanifest">
-<title>ほいサポ</title>
+<meta name="theme-color" content="#5d82b3"><link rel="manifest" href="manifest.webmanifest">
+<title>ほいサポ2</title>
 <style>
 *{box-sizing:border-box}body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Hiragino Kaku Gothic ProN",sans-serif;background:#f5f7fa;color:#222}
-header{background:#4f7cac;color:#fff;padding:18px 16px;font-size:24px;font-weight:700}main{max-width:760px;margin:auto;padding:14px}
-.card{background:#fff;border-radius:16px;padding:16px;margin-bottom:14px;box-shadow:0 2px 8px #0001}
-.tabs,.row{display:flex;gap:8px}.tabs button,.row>*{flex:1}button{border:0;border-radius:12px;padding:12px 14px;background:#4f7cac;color:#fff;font-weight:700;font-size:16px}
-button.secondary{background:#e8edf3;color:#222}label{display:block;font-weight:700;margin:12px 0 6px}
-input,textarea,select{width:100%;padding:11px;border:1px solid #ccd4dd;border-radius:10px;background:#fff;font:inherit}textarea{min-height:110px}
-.section{border-left:5px solid #4f7cac;padding-left:10px;margin-top:16px}.section h2{font-size:18px}
-.hidden{display:none}.status{margin-top:10px;padding:10px;border-radius:10px;background:#eef5fb;white-space:pre-wrap}.small{font-size:13px;color:#667}
-.record{border:1px solid #dde3e8;border-radius:10px;padding:10px;margin-top:8px}
-</style></head>
-<body><header>ほいサポ</header><main>
+header{background:linear-gradient(#6f95c4,#5279aa);color:#fff;padding:16px;font-size:28px;font-weight:800}
+main{max-width:760px;margin:auto;padding:14px}.tabs,.row,.dangerRow,.actions{display:flex;gap:8px}
+.tabs button,.row>*{flex:1}.dangerRow button{flex:1}
+button{border:0;border-radius:14px;padding:13px 14px;background:#5d82b3;color:#fff;font-weight:800;font-size:16px}
+button.secondary{background:#e7ecf3;color:#222}button.delete{background:#fff;color:#c93030;border:2px solid #d33}
+button.small{padding:9px 12px;font-size:14px}.card{background:#fff;border-radius:20px;padding:16px;margin-bottom:14px;box-shadow:0 2px 10px #0001}
+label{display:block;font-weight:800;margin:12px 0 6px}input,textarea,select{width:100%;padding:12px;border:2px solid #d3dbe5;border-radius:12px;background:#fff;font:inherit}
+textarea{min-height:115px;resize:vertical}.section{border-left:6px solid #5d82b3;padding-left:10px;margin-top:18px}.section h2{font-size:20px;margin:5px 0 10px}
+.hidden{display:none}.status{margin:10px 0;padding:12px;border-radius:12px;background:#edf4fb;white-space:pre-wrap}.small{font-size:13px;color:#667}
+.record{border:1px solid #dbe2ea;border-radius:12px;padding:12px;margin-top:9px}.actions{margin-top:8px}.actions button{flex:1}
+</style></head><body><header>ほいサポ2</header><main>
 <div class="tabs"><button id="recordTab">記録</button><button id="historyTab" class="secondary">履歴</button><button id="settingsTab" class="secondary">AI設定</button></div>
-
-<div id="recordPage" class="card">
-<h2>訪問記録</h2>
+<section id="recordPage" class="card"><h2>訪問記録</h2>
+<div class="dangerRow"><button id="deleteChild" class="delete">名前を消去</button><button id="deleteRecord" class="delete">記録を消去</button></div>
 <label>対象児</label><div class="row"><select id="child"></select><button id="addChild" class="secondary">児童追加</button></div>
 <label>訪問日</label><input id="date" type="date">
 <label>メモ</label><textarea id="memo" placeholder="観察したこと、本人への支援、担任とのやり取りなど"></textarea>
@@ -27,56 +26,26 @@ input,textarea,select{width:100%;padding:11px;border:1px solid #ccd4dd;border-ra
 <div class="section"><h2>① 学級・学校の様子</h2><textarea id="school"></textarea></div>
 <div class="section"><h2>② 直接支援</h2><textarea id="direct"></textarea></div>
 <div class="section"><h2>③ 間接支援</h2><textarea id="indirect"></textarea></div>
-<div class="row"><button id="save">記録を保存</button><button id="new" class="secondary">新しい記録</button></div>
-</div>
-
-<div id="historyPage" class="card hidden"><h2>訪問履歴</h2><div id="history"></div></div>
-<div id="settingsPage" class="card hidden"><h2>AI設定</h2>
-<label>使用するAI</label><select><option>ChatGPT</option><option>Gemini</option><option>Claude</option><option>AIなし</option></select>
-<label>AIに送る前に匿名化</label><select><option>ON</option><option>OFF</option></select>
-<p class="small">v3では外部AIへ送信せず、端末内で整理します。AI接続は次の段階で追加できます。</p></div>
+<div class="row"><button id="save">記録を保存</button><button id="new" class="secondary">新しい記録</button></div></section>
+<section id="historyPage" class="card hidden"><h2>訪問履歴</h2><div id="history"></div></section>
+<section id="settingsPage" class="card hidden"><h2>AI設定</h2><label>使用するAI</label><select><option>ChatGPT</option><option>Gemini</option><option>Claude</option><option>AIなし</option></select><label>AIに送る前に匿名化</label><select><option>ON</option><option>OFF</option></select><p class="small">現在は端末内で整理する試作版です。外部AIへの自動送信は行いません。</p></section>
 </main>
-
 <script>
 "use strict";
-var children=JSON.parse(localStorage.getItem("hoisapo_children_v3")||'["桜田淳子"]');
-var records=JSON.parse(localStorage.getItem("hoisapo_records_v3")||"[]");
-var editingId=null;
-function $(id){return document.getElementById(id)}
-function persist(){localStorage.setItem("hoisapo_children_v3",JSON.stringify(children));localStorage.setItem("hoisapo_records_v3",JSON.stringify(records))}
+var CK="hoisapo2_children_v4",RK="hoisapo2_records_v4",children=JSON.parse(localStorage.getItem(CK)||'["桜田淳子"]'),records=JSON.parse(localStorage.getItem(RK)||"[]"),editingId=null;
+function $(i){return document.getElementById(i)}function persist(){localStorage.setItem(CK,JSON.stringify(children));localStorage.setItem(RK,JSON.stringify(records))}
 function status(t){$("status").textContent=t;$("status").classList.remove("hidden")}
 function renderChildren(){var s=$("child");s.innerHTML="";children.forEach(function(n){var o=document.createElement("option");o.value=n;o.textContent=n;s.appendChild(o)})}
-function page(id){["recordPage","historyPage","settingsPage"].forEach(function(x){$(x).classList.add("hidden")});$(id).classList.remove("hidden")}
-function sentences(t){return t.replace(/\r/g,"").split(/(?<=[。！？\n])/).map(function(x){return x.trim()}).filter(Boolean)}
-function organize(){
- var t=$("memo").value.trim(); if(!t){status("まずメモを入力してください。");return}
- var a=[],b=[],c=[];
- sentences(t).forEach(function(s){
-   var indirect=/(担任|先生|教師|保育士|学校側|園側).*(話し合|相談|共有|確認|伝え|助言|方針)|((話し合|相談|情報共有|共有|助言|方針|環境調整|対応方法).*(担任|先生|教師|学校|園|保護者))/.test(s);
-   var direct=/(本人|児童|子ども).*(声をかけ|声掛け|説明|促し|支援|援助|手伝|一緒に|確認|介入|対応)|((個別に声|声をかけ|声掛け|説明|促し|援助|一緒に確認).*(予定|活動|課題|本人|児童|子ども))/.test(s);
-   if(indirect)c.push(s); else if(direct)b.push(s); else a.push(s);
- });
- $("school").value=a.join("\n");$("direct").value=b.join("\n");$("indirect").value=c.join("\n");
- status("整理しました。内容を確認・修正してから保存してください。")
-}
-function saveRecord(){
- var r={id:editingId||Date.now(),child:$("child").value,date:$("date").value,memo:$("memo").value,school:$("school").value,direct:$("direct").value,indirect:$("indirect").value};
- var i=records.findIndex(function(x){return x.id===r.id});if(i>=0)records[i]=r;else records.unshift(r);persist();editingId=r.id;renderHistory();status("保存しました。")
-}
-function renderHistory(){
- var h=$("history"),name=$("child").value;h.innerHTML="";var list=records.filter(function(r){return r.child===name});
- if(!list.length){h.innerHTML='<p class="small">この児童の記録はまだありません。</p>';return}
- list.forEach(function(r){var d=document.createElement("div");d.className="record";d.innerHTML="<b>"+r.date+"</b><br>"+(r.school||"").slice(0,100);var b=document.createElement("button");b.textContent="開く";b.className="secondary";b.style.marginTop="8px";b.onclick=function(){load(r.id)};d.appendChild(b);h.appendChild(d)})
-}
-function load(id){var r=records.find(function(x){return x.id===id});if(!r)return;editingId=r.id;$("child").value=r.child;$("date").value=r.date;$("memo").value=r.memo||"";$("school").value=r.school||"";$("direct").value=r.direct||"";$("indirect").value=r.indirect||"";page("recordPage");status("保存済み記録を開きました。")}
-function newRecord(){editingId=null;$("memo").value="";$("school").value="";$("direct").value="";$("indirect").value="";$("date").value=new Date().toISOString().slice(0,10);status("新しい記録です。")}
-function voice(){
- var SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR){status("ブラウザの音声認識が利用できません。iPhoneのキーボードのマイクを使ってください。");return}
- var r=new SR();r.lang="ja-JP";r.interimResults=false;status("音声を聞いています。話してください。");
- r.onresult=function(e){$("memo").value+=($("memo").value?"\n":"")+e.results[0][0].transcript};r.onerror=function(e){status("音声入力エラー："+e.error)};r.onend=function(){status("音声入力を終了しました。")};r.start()
-}
-$("recordTab").onclick=function(){page("recordPage")};$("historyTab").onclick=function(){renderHistory();page("historyPage")};$("settingsTab").onclick=function(){page("settingsPage")};
-$("organize").onclick=organize;$("save").onclick=saveRecord;$("new").onclick=newRecord;$("voice").onclick=voice;$("child").onchange=renderHistory;
-$("addChild").onclick=function(){var n=prompt("児童名を入力してください");if(n&&n.trim()){children.push(n.trim());persist();renderChildren();$("child").value=n.trim()}};
-renderChildren();$("date").value=new Date().toISOString().slice(0,10);
+function show(id){["recordPage","historyPage","settingsPage"].forEach(function(x){$(x).classList.add("hidden")});$(id).classList.remove("hidden")}
+function split(t){return t.replace(/\r/g,"").split(/(?<=[。！？\n])/).map(function(x){return x.trim()}).filter(Boolean)}
+function organize(){var t=$("memo").value.trim();if(!t){status("まずメモを入力してください。");return}var a=[],b=[],c=[];split(t).forEach(function(s){var i=/(担任|先生|教師|保育士|学校側|園側).*(話し合|相談|共有|確認|伝え|助言|方針)|((話し合|相談|情報共有|共有|助言|方針|環境調整|対応方法).*(担任|先生|教師|学校|園|保護者))/.test(s);var d=/(本人|児童|子ども).*(声をかけ|声掛け|説明|促し|支援|援助|手伝|一緒に|確認|介入|対応)|((個別に声|声をかけ|声掛け|説明|促し|援助|一緒に確認).*(予定|活動|課題|本人|児童|子ども))/.test(s);if(i)c.push(s);else if(d)b.push(s);else a.push(s)});$("school").value=a.join("\n");$("direct").value=b.join("\n");$("indirect").value=c.join("\n");status("整理しました。内容を確認・修正してから保存してください。")}
+function saveRecord(){var r={id:editingId||Date.now(),child:$("child").value,date:$("date").value,memo:$("memo").value,school:$("school").value,direct:$("direct").value,indirect:$("indirect").value},i=records.findIndex(function(x){return x.id===r.id});if(i>=0)records[i]=r;else records.unshift(r);persist();editingId=r.id;renderHistory();status("保存しました。")}
+function renderHistory(){var h=$("history"),name=$("child").value;h.innerHTML="";var list=records.filter(function(r){return r.child===name});if(!list.length){h.innerHTML='<p class="small">この児童の記録はまだありません。</p>';return}list.forEach(function(r){var d=document.createElement("div");d.className="record";d.innerHTML="<b>"+r.date+"</b><br><span class='small'>"+(r.school||"").slice(0,100)+"</span>";var a=document.createElement("div");a.className="actions";var o=document.createElement("button");o.textContent="開く";o.className="secondary";o.onclick=function(){load(r.id)};var x=document.createElement("button");x.textContent="この記録を消去";x.className="delete small";x.onclick=function(){deleteRecordById(r.id)};a.appendChild(o);a.appendChild(x);d.appendChild(a);h.appendChild(d)})}
+function load(id){var r=records.find(function(x){return x.id===id});if(!r)return;editingId=r.id;$("child").value=r.child;$("date").value=r.date;$("memo").value=r.memo||"";$("school").value=r.school||"";$("direct").value=r.direct||"";$("indirect").value=r.indirect||"";show("recordPage");status("保存済み記録を開きました。")}
+function deleteRecordById(id){if(!records.some(function(r){return r.id===id}))return;if(!confirm("この訪問記録を消去します。\nこの操作は元に戻せません。\n\n消去しますか？"))return;records=records.filter(function(r){return r.id!==id});persist();if(editingId===id)newRecord();renderHistory();status("記録を消去しました。")}
+function deleteCurrent(){if(editingId!==null){deleteRecordById(editingId);return}status("現在編集中の保存済み記録はありません。")}
+function deleteChild(){var name=$("child").value;if(!name)return;var count=records.filter(function(r){return r.child===name}).length;if(!confirm("「"+name+"」を消去します。\nこの児童に紐づく訪問記録 "+count+" 件もすべて消去されます。\n\nこの操作は元に戻せません。\n\n消去しますか？"))return;children=children.filter(function(n){return n!==name});records=records.filter(function(r){return r.child!==name});if(!children.length)children=["桜田淳子"];persist();renderChildren();newRecord();status("児童名と、その児童の記録を消去しました。")}
+function newRecord(){editingId=null;$("memo").value="";$("school").value="";$("direct").value="";$("indirect").value="";$("date").value=new Date().toISOString().slice(0,10)}
+function voice(){var SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR){status("音声認識が利用できません。iPhoneキーボードのマイクを使ってください。");return}var r=new SR();r.lang="ja-JP";r.interimResults=false;status("音声を聞いています。話してください。");r.onresult=function(e){$("memo").value+=($("memo").value?"\n":"")+e.results[0][0].transcript};r.onerror=function(e){status("音声入力エラー："+e.error)};r.onend=function(){status("音声入力を終了しました。")};r.start()}
+$("recordTab").onclick=function(){show("recordPage")};$("historyTab").onclick=function(){renderHistory();show("historyPage")};$("settingsTab").onclick=function(){show("settingsPage")};$("organize").onclick=organize;$("save").onclick=saveRecord;$("new").onclick=newRecord;$("voice").onclick=voice;$("deleteRecord").onclick=deleteCurrent;$("deleteChild").onclick=deleteChild;$("addChild").onclick=function(){var n=prompt("児童名を入力してください");if(n&&n.trim()&&children.indexOf(n.trim())<0){children.push(n.trim());persist();renderChildren();$("child").value=n.trim();newRecord()}};renderChildren();$("date").value=new Date().toISOString().slice(0,10);
 </script></body></html>
