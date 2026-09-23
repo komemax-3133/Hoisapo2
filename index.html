@@ -53,8 +53,12 @@ textarea{min-height:115px;resize:vertical}
 <button id="addChild" class="secondary">児童追加</button>
 </div>
 
-<label>訪問日</label>
+<label>訪問日時</label>
+<div class="row">
 <input id="date" type="date">
+<input id="startTime" type="time">
+<input id="endTime" type="time">
+</div>
 
 <label>メモ</label>
 <textarea id="memo" placeholder="観察したこと、本人への支援、担任とのやり取りなど"></textarea>
@@ -93,7 +97,7 @@ textarea{min-height:115px;resize:vertical}
 <select><option>ChatGPT</option><option>Gemini</option><option>Claude</option><option>AIなし</option></select>
 <label>AIに送る前に匿名化</label>
 <select><option>ON</option><option>OFF</option></select>
-<p class="small">現在は端末内で整理する試作版です。外部AIへの自動送信は行いません。</p>
+<p class="small">メモを記録文に整えて①②③に整理します。現在は端末内で処理し、外部AIへの自動送信は行いません。</p>
 </section>
 </main>
 
@@ -124,17 +128,67 @@ function show(id){
 function split(t){
  return t.replace(/\r/g,"").split(/(?<=[。！？\n])/).map(function(x){return x.trim()}).filter(Boolean)
 }
+function normalizeRecordSentence(s){
+ var x=s.trim();
+
+ // 会話調を記録調へ。意味や事実は追加しない。
+ x=x.replace(/個別に声をかけると、/g,"個別に声をかけ、");
+ x=x.replace(/声をかけると、/g,"声をかけ、");
+ x=x.replace(/声を掛けると、/g,"声をかけ、");
+ x=x.replace(/確認することができた。?$/g,"確認した。");
+ x=x.replace(/確認することができた$/g,"確認した");
+ x=x.replace(/できました。?$/g,"できた。");
+ x=x.replace(/と聞いた。?$/g,"とのこと。");
+ x=x.replace(/と聞いた$/g,"とのこと");
+ return x;
+}
+
+function classifyRecordSentence(s){
+ var t=s.trim();
+
+ // まず「担任等との相談・情報共有」は③。
+ var indirect=/(担任|教師|先生|保育士|学校側|園側|保護者).*(話し合|相談|情報共有|共有|助言|伝え|方針|対応方法|環境調整)|((話し合|相談|情報共有|共有|助言|対応方法|環境調整|今後の支援方針).*(担任|教師|先生|保育士|学校|園|保護者))/;
+ if(indirect.test(t)) return "indirect";
+
+ // 「本人への声かけ・説明・援助・確認」は②。
+ var direct=/(本人|児童|子ども|本人に|本人と|個別に).*(声をかけ|声掛け|説明|促し|支援|援助|手伝|一緒に|確認|介入)|((個別に声|声をかけ|声掛け|説明|促し|援助|一緒に確認).*(予定|活動|課題|本人|児童|子ども))/;
+ if(direct.test(t)) return "direct";
+
+ // それ以外は観察・学校生活の様子として①。
+ return "school";
+}
+
 function organize(){
  var t=$("memo").value.trim();
  if(!t){status("まずメモを入力してください。");return}
+
  var a=[],b=[],c=[];
- split(t).forEach(function(s){
-  var i=/(担任|先生|教師|保育士|学校側|園側).*(話し合|相談|共有|確認|伝え|助言|方針)|((話し合|相談|情報共有|共有|助言|方針|環境調整|対応方法).*(担任|先生|教師|学校|園|保護者))/.test(s);
-  var d=/(本人|児童|子ども).*(声をかけ|声掛け|説明|促し|支援|援助|手伝|一緒に|確認|介入|対応)|((個別に声|声をかけ|声掛け|説明|促し|援助|一緒に確認).*(予定|活動|課題|本人|児童|子ども))/.test(s);
-  if(i)c.push(s);else if(d)b.push(s);else a.push(s)
+ split(t).forEach(function(raw){
+  var s=normalizeRecordSentence(raw);
+  if(!s)return;
+
+  // 1文の中に「本人への直接支援」→「担任との話し合い」が
+  // 続けて書かれている場合は、接続部分で分ける。
+  var parts=s.split(/(?=その後|そのうえで|続いて|また、)(?=その後|そのうえで|続いて|また、)/);
+  if(parts.length===1){
+   var m=s.match(/^(.*?)(?:。)(その後|そのうえで|続いて|また、)(.*)$/);
+   if(m) parts=[m[1]+"。",m[2]+m[3]];
+  }
+
+  parts.forEach(function(p){
+   p=p.trim();
+   if(!p)return;
+   var type=classifyRecordSentence(p);
+   if(type==="indirect")c.push(p);
+   else if(type==="direct")b.push(p);
+   else a.push(p);
+  });
  });
- $("school").value=a.join("\n");$("direct").value=b.join("\n");$("indirect").value=c.join("\n");
- status("整理しました。内容を確認・修正してから保存してください。")
+
+ $("school").value=[...new Set(a)].join("\n");
+ $("direct").value=[...new Set(b)].join("\n");
+ $("indirect").value=[...new Set(c)].join("\n");
+ status("記録文として整理しました。内容を確認・修正してから保存してください。");
 }
 function saveRecord(){
  var r={id:editingId||Date.now(),child:$("child").value,date:$("date").value,memo:$("memo").value,school:$("school").value,direct:$("direct").value,indirect:$("indirect").value};
@@ -215,8 +269,23 @@ function ymdJP(iso){
  var y=+m[1],mo=+m[2],da=+m[3];
  return {year:y,reiwa:y-2018,month:mo,day:da,weekday:["日","月","火","水","木","金","土"][new Date(y,mo-1,da).getDay()]};
 }
+function setCellKeepStyle(ws, addr, value, verticalTop){
+ var old=ws[addr]||{};
+ var cell={t:'s',v:value==null?'':String(value)};
+ if(old.s) cell.s=old.s;
+ if(old.z) cell.z=old.z;
+ if(old.n) cell.n=old.n;
+ if(old.f) cell.f=old.f;
+ if(old.l) cell.l=old.l;
+ if(verticalTop){
+   cell.s=Object.assign({}, cell.s||{});
+   cell.s.alignment=Object.assign({}, (cell.s.alignment||{}), {vertical:"top"});
+ }
+ ws[addr]=cell;
+}
+
 async function exportExcel(){
- if(!$('child').value||!$('date').value){status('対象児と訪問日を確認してください。');return}
+ if(!$('child').value||!$('date').value){status('対象児と訪問日時を確認してください。');return}
  if(typeof XLSX==='undefined'){status('Excel出力機能の読み込みに失敗しました。通信状態を確認してください。');return}
  try{
   status('Excelを作成しています…');
@@ -227,31 +296,60 @@ async function exportExcel(){
   var ws=wb.Sheets['記録テンプレート']||wb.Sheets[wb.SheetNames[0]];
   var d=ymdJP($('date').value);
   if(!d)throw new Error('date');
-  var child=$('child').value.trim();
-  // シート名：YYMMDD＋下の名前
-  var sheetName=$('date').value.replace(/-/g,'').slice(2)+child.split(/[\s　]+/).filter(Boolean).slice(-1)[0];
-  sheetName=sheetName.slice(0,31);
-  wb.SheetNames=[sheetName]; wb.Sheets[sheetName]=ws; delete wb.Sheets['記録テンプレート'];
 
-  // 原本の位置に記録内容を入れる
-  ws['A4']={t:'s',v:'対象児：'+child};
-  ws['N4']={t:'s',v:'令和'}; ws['P4']={t:'n',v:d.reiwa}; ws['R4']={t:'s',v:'年'};
-  ws['S4']={t:'n',v:d.month}; ws['U4']={t:'s',v:'月'}; ws['V4']={t:'n',v:d.day}; ws['X4']={t:'s',v:'日'};
-  ws['Y4']={t:'s',v:'('}; ws['Z4']={t:'s',v:d.weekday}; ws['AB4']={t:'s',v:')'};
-  ws['C8']={t:'s',v:$('school').value||''};
-  ws['C11']={t:'s',v:''};
-  ws['C16']={t:'s',v:$('direct').value||''};
-  ws['C21']={t:'s',v:''};
-  ws['D28']={t:'s',v:$('indirect').value||''};
-  ws['D34']={t:'s',v:''};
-  // 作成時刻などの不要なメタ情報は追加しない
+  var child=$('child').value.trim();
+
+  // シート名：YYMMDD＋下の名前
+  var first=child.split(/[\s　]+/).filter(Boolean).slice(-1)[0]||child;
+  var sheetName=$('date').value.replace(/-/g,'').slice(2)+first;
+  sheetName=sheetName.slice(0,31);
+  wb.SheetNames=[sheetName];
+  wb.Sheets[sheetName]=ws;
+  delete wb.Sheets['記録テンプレート'];
+
+  // 対象児：原本の「対象児」欄（A5:G5）へ。
+  setCellKeepStyle(ws,'A5',child,true);
+
+  // 訪問日：原本の年/月/日欄へ。
+  setCellKeepStyle(ws,'P4',d.reiwa,false);
+  setCellKeepStyle(ws,'S4',d.month,false);
+  setCellKeepStyle(ws,'V4',d.day,false);
+  setCellKeepStyle(ws,'Z4',d.weekday,false);
+
+  // 訪問時間：N5:O5＝開始時、Q5:R5＝開始分、T5:U5＝終了時、W5:X5＝終了分。
+  var st=($('startTime')&&$('startTime').value)||'';
+  var et=($('endTime')&&$('endTime').value)||'';
+  if(st){
+    var sp=st.split(':');
+    setCellKeepStyle(ws,'N5',sp[0]||'',false);
+    setCellKeepStyle(ws,'Q5',sp[1]||'',false);
+  }
+  if(et){
+    var ep=et.split(':');
+    setCellKeepStyle(ws,'T5',ep[0]||'',false);
+    setCellKeepStyle(ws,'W5',ep[1]||'',false);
+  }
+
+  // 記録本文：原本の入力欄。上詰めで記入。
+  setCellKeepStyle(ws,'C8',$('school').value||'',true);
+  setCellKeepStyle(ws,'C16',$('direct').value||'',true);
+  setCellKeepStyle(ws,'D28',$('indirect').value||'',true);
+
+  // 予備欄は空にする。
+  setCellKeepStyle(ws,'C11','',true);
+  setCellKeepStyle(ws,'C21','',true);
+  setCellKeepStyle(ws,'D34','',true);
+
   var out=XLSX.write(wb,{bookType:'xlsx',type:'array',cellStyles:true,compression:true});
   var blob=new Blob([out],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
   var url=URL.createObjectURL(blob),a=document.createElement('a');
   a.href=url;a.download=fileName();document.body.appendChild(a);a.click();a.remove();
   setTimeout(function(){URL.revokeObjectURL(url)},2000);
   status('Excelを出力しました。ファイル名：'+fileName());
- }catch(e){console.error(e);status('Excel出力でエラーが発生しました。テンプレートがGitHubにアップロードされているか確認してください。');}
+ }catch(e){
+  console.error(e);
+  status('Excel出力でエラーが発生しました。テンプレートがGitHubにアップロードされているか確認してください。');
+ }
 }
 
 $("recordTab").onclick=function(){show("recordPage")};
