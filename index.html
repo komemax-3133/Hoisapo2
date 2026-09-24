@@ -247,15 +247,6 @@ function voice(){
 }
 
 /* 下の名前＋YYMMDD */
-function fileName(){
- var full=$("child").value.trim();
- var parts=full.split(/\s+/);
- if(parts.length<2) parts=full.split(/　+/);
- var first=parts.length>=2?parts[parts.length-1]:full;
- var d=$("date").value.replace(/-/g,"").slice(2);
- return first+"_"+d+".xlsx";
-}
-
 /* Excel出力：個人情報を除いた原本テンプレートを読み込み、正規のXLSXとして保存します。 */
 function fileName(){
  var full=$("child").value.trim();
@@ -270,16 +261,12 @@ function ymdJP(iso){
  return {year:y,reiwa:y-2018,month:mo,day:da,weekday:["日","月","火","水","木","金","土"][new Date(y,mo-1,da).getDay()]};
 }
 function setCellKeepStyle(ws, addr, value, verticalTop){
- var old=ws[addr]||{};
- var cell={t:'s',v:value==null?'':String(value)};
- if(old.s) cell.s=old.s;
- if(old.z) cell.z=old.z;
- if(old.n) cell.n=old.n;
- if(old.f) cell.f=old.f;
- if(old.l) cell.l=old.l;
- if(verticalTop){
-   cell.s=Object.assign({}, cell.s||{});
-   cell.s.alignment=Object.assign({}, (cell.s.alignment||{}), {vertical:"top"});
+ var cell=ws[addr]||{t:'s',v:''};
+ // 既存セルをそのまま使い、テンプレートの罫線・結合・配置などのスタイルを保持する。
+ cell.t='s';
+ cell.v=value==null?'':String(value);
+ if(verticalTop && cell.s && cell.s.alignment){
+   cell.s.alignment.vertical='top';
  }
  ws[addr]=cell;
 }
