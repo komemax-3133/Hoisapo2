@@ -104,7 +104,7 @@ textarea{min-height:115px;resize:vertical}
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <script>
 "use strict";
-var CK="hoisapo2_children_v5",RK="hoisapo2_records_v5";
+var CK="hoisapo2_children_v6",RK="hoisapo2_records_v6";
 var children=JSON.parse(localStorage.getItem(CK)||'["桜田 淳子"]');
 var records=JSON.parse(localStorage.getItem(RK)||"[]");
 var editingId=null;
@@ -260,13 +260,16 @@ function ymdJP(iso){
  var y=+m[1],mo=+m[2],da=+m[3];
  return {year:y,reiwa:y-2018,month:mo,day:da,weekday:["日","月","火","水","木","金","土"][new Date(y,mo-1,da).getDay()]};
 }
-function setCellKeepStyle(ws, addr, value, verticalTop){
+function setCellKeepStyle(ws, addr, value, verticalTop, wrapText){
  var cell=ws[addr]||{t:'s',v:''};
- // 既存セルをそのまま使い、テンプレートの罫線・結合・配置などのスタイルを保持する。
+ // 値は維持しつつ、本文欄は「上寄せ＋折り返し」を明示。
  cell.t='s';
  cell.v=value==null?'':String(value);
- if(verticalTop && cell.s && cell.s.alignment){
+ if(verticalTop){
+   cell.s = cell.s || {};
+   cell.s.alignment = cell.s.alignment || {};
    cell.s.alignment.vertical='top';
+   cell.s.alignment.wrapText = (wrapText !== false);
  }
  ws[addr]=cell;
 }
@@ -316,11 +319,13 @@ async function exportExcel(){
     setCellKeepStyle(ws,'T5',ep[0]||'',false);
     setCellKeepStyle(ws,'W5',ep[1]||'',false);
   }
+  // 「分」の表示を明示的に保持。
+  setCellKeepStyle(ws,'AA5','分',false);
 
-  // 記録本文：原本の入力欄。上詰めで記入。
-  setCellKeepStyle(ws,'C8',$('school').value||'',true);
-  setCellKeepStyle(ws,'C16',$('direct').value||'',true);
-  setCellKeepStyle(ws,'D28',$('indirect').value||'',true);
+  // 記録本文：①②③の入力欄。上寄せ＋折り返しで表示。
+  setCellKeepStyle(ws,'C8',$('school').value||'',true,true);
+  setCellKeepStyle(ws,'C16',$('direct').value||'',true,true);
+  setCellKeepStyle(ws,'D28',$('indirect').value||'',true,true);
 
   // 予備欄は空にする。
   setCellKeepStyle(ws,'C11','',true);
