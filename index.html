@@ -262,15 +262,8 @@ function ymdJP(iso){
 }
 function setCellKeepStyle(ws, addr, value, verticalTop, wrapText){
  var cell=ws[addr]||{t:'s',v:''};
- // 値は維持しつつ、本文欄は「上寄せ＋折り返し」を明示。
- cell.t='s';
- cell.v=value==null?'':String(value);
- if(verticalTop){
-   cell.s = cell.s || {};
-   cell.s.alignment = cell.s.alignment || {};
-   cell.s.alignment.vertical='top';
-   cell.s.alignment.wrapText = (wrapText !== false);
- }
+ cell.t = (typeof value === 'number') ? 'n' : 's';
+ cell.v = value==null ? '' : value;
  ws[addr]=cell;
 }
 
@@ -306,31 +299,39 @@ async function exportExcel(){
   setCellKeepStyle(ws,'V4',d.day,false);
   setCellKeepStyle(ws,'Z4',d.weekday,false);
 
-  // 訪問時間：N5:O5＝開始時、Q5:R5＝開始分、T5:U5＝終了時、W5:X5＝終了分。
+  // 訪問時間：N5＝開始時、Q5＝開始分、T5＝終了時、W5＝終了分。
+  // Z5＝支援時間の合計（分）。AA5の「分」はテンプレートの表示をそのまま使用。
   var st=($('startTime')&&$('startTime').value)||'';
   var et=($('endTime')&&$('endTime').value)||'';
+  var totalMinutes='';
   if(st){
     var sp=st.split(':');
-    setCellKeepStyle(ws,'N5',sp[0]||'',false);
-    setCellKeepStyle(ws,'Q5',sp[1]||'',false);
+    setCellKeepStyle(ws,'N5',Number(sp[0]||0),false);
+    setCellKeepStyle(ws,'Q5',Number(sp[1]||0),false);
   }
   if(et){
     var ep=et.split(':');
-    setCellKeepStyle(ws,'T5',ep[0]||'',false);
-    setCellKeepStyle(ws,'W5',ep[1]||'',false);
+    setCellKeepStyle(ws,'T5',Number(ep[0]||0),false);
+    setCellKeepStyle(ws,'W5',Number(ep[1]||0),false);
   }
-  // 「分」の表示を明示的に保持。
+  if(st && et){
+    var sm=st.split(':').map(Number), em=et.split(':').map(Number);
+    var startMin=sm[0]*60+sm[1], endMin=em[0]*60+em[1];
+    if(endMin>=startMin) totalMinutes=endMin-startMin;
+    else totalMinutes=(24*60-startMin)+endMin;
+  }
+  setCellKeepStyle(ws,'Z5',totalMinutes===''?'':totalMinutes,false);
   setCellKeepStyle(ws,'AA5','分',false);
 
-  // 記録本文：①②③の入力欄。上寄せ＋折り返しで表示。
-  setCellKeepStyle(ws,'C8',$('school').value||'',true,true);
-  setCellKeepStyle(ws,'C16',$('direct').value||'',true,true);
-  setCellKeepStyle(ws,'D28',$('indirect').value||'',true,true);
+  // 記録本文。上寄せ＋折り返しはテンプレート側に設定済み。
+  setCellKeepStyle(ws,'C8',$('school').value||'',false);
+  setCellKeepStyle(ws,'C16',$('direct').value||'',false);
+  setCellKeepStyle(ws,'D28',$('indirect').value||'',false);
 
   // 予備欄は空にする。
-  setCellKeepStyle(ws,'C11','',true);
-  setCellKeepStyle(ws,'C21','',true);
-  setCellKeepStyle(ws,'D34','',true);
+  setCellKeepStyle(ws,'C11','',false);
+  setCellKeepStyle(ws,'C21','',false);
+  setCellKeepStyle(ws,'D34','',false);
 
   var out=XLSX.write(wb,{bookType:'xlsx',type:'array',cellStyles:true,compression:true});
   var blob=new Blob([out],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
