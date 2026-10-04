@@ -352,14 +352,15 @@ async function exportExcel(){
     c.value=value||'';
     c.alignment={vertical:'top',horizontal:'left',wrapText:true};
   }
-  writeMergedTopWrap('C8:AK10','C8',$('school').value||'');
-  writeMergedTopWrap('C16:AK19','C16',$('direct').value||'');
-  writeMergedTopWrap('D28:AK33','D28',$('indirect').value||'');
+  writeMergedTopWrap('C8:AK13','C8',$('school').value||'');
+  writeMergedTopWrap('C16:AK25','C16',$('direct').value||'');
+  writeMergedTopWrap('C28:AK37','C28',$('indirect').value||'');
+  // ①②③の文字色を黒に統一
+  ['C8','C16','C28'].forEach(function(addr){
+    var c=ws.getCell(addr);
+    c.font=Object.assign({},c.font||{},{color:{argb:'FF000000'}});
+  });
 
-  // 予備欄
-  setExcelCell(ws,'C11','');
-  setExcelCell(ws,'C21','');
-  setExcelCell(ws,'D34','');
 
   var out=await wb.xlsx.writeBuffer();
   var blob=new Blob([out],{

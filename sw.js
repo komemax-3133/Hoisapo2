@@ -1,4 +1,4 @@
-const CACHE="hoisapo-v9";
+const CACHE="hoisapo-v11";
 const ASSETS=["./","./index.html","./manifest.webmanifest","./hoisapo_template.xlsx"];
 
 self.addEventListener("install", event => {
