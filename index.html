@@ -101,7 +101,7 @@ textarea{min-height:115px;resize:vertical}
 </section>
 </main>
 
-<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 <script>
 "use strict";
 var CK="hoisapo2_children_v6",RK="hoisapo2_records_v6";
@@ -260,88 +260,109 @@ function ymdJP(iso){
  var y=+m[1],mo=+m[2],da=+m[3];
  return {year:y,reiwa:y-2018,month:mo,day:da,weekday:["日","月","火","水","木","金","土"][new Date(y,mo-1,da).getDay()]};
 }
-function setCellKeepStyle(ws, addr, value, verticalTop, wrapText){
- var cell=ws[addr]||{t:'s',v:''};
- cell.t = (typeof value === 'number') ? 'n' : 's';
- cell.v = value==null ? '' : value;
- ws[addr]=cell;
+function setExcelCell(ws, addr, value, opts){
+ var cell=ws.getCell(addr);
+ cell.value=(value===undefined||value===null) ? "" : value;
+ opts=opts||{};
+ if(opts.topWrap){
+   cell.alignment=Object.assign({}, cell.alignment||{}, {
+     vertical:"top",
+     horizontal:"left",
+     wrapText:true
+   });
+ }
 }
 
 async function exportExcel(){
- if(!$('child').value||!$('date').value){status('対象児と訪問日時を確認してください。');return}
- if(typeof XLSX==='undefined'){status('Excel出力機能の読み込みに失敗しました。通信状態を確認してください。');return}
+ if(!$('child').value||!$('date').value){
+   status('対象児と訪問日時を確認してください。');return;
+ }
+ if(typeof ExcelJS==='undefined'){
+   status('Excel出力機能の読み込みに失敗しました。通信状態を確認してください。');return;
+ }
+
  try{
   status('Excelを作成しています…');
+
   var res=await fetch('./hoisapo_template.xlsx',{cache:'no-store'});
-  if(!res.ok)throw new Error('template '+res.status);
+  if(!res.ok) throw new Error('template '+res.status);
   var buf=await res.arrayBuffer();
-  var wb=XLSX.read(buf,{type:'array',cellStyles:true,cellNF:true,cellDates:true});
-  var ws=wb.Sheets['記録テンプレート']||wb.Sheets[wb.SheetNames[0]];
+
+  var wb=new ExcelJS.Workbook();
+  await wb.xlsx.load(buf);
+  var ws=wb.getWorksheet('記録テンプレート')||wb.worksheets[0];
+
   var d=ymdJP($('date').value);
-  if(!d)throw new Error('date');
+  if(!d) throw new Error('date');
 
   var child=$('child').value.trim();
+  var first=child.split(/[\s　]+/).filter(Boolean).slice(-1)[0]||child;
 
   // シート名：YYMMDD＋下の名前
-  var first=child.split(/[\s　]+/).filter(Boolean).slice(-1)[0]||child;
-  var sheetName=$('date').value.replace(/-/g,'').slice(2)+first;
-  sheetName=sheetName.slice(0,31);
-  wb.SheetNames=[sheetName];
-  wb.Sheets[sheetName]=ws;
-  delete wb.Sheets['記録テンプレート'];
+  ws.name=($('date').value.replace(/-/g,'').slice(2)+first).slice(0,31);
 
-  // 対象児：原本の「対象児」欄（A5:G5）へ。
-  setCellKeepStyle(ws,'A5',child,true);
+  // 対象児
+  setExcelCell(ws,'A5',child);
 
-  // 訪問日：原本の年/月/日欄へ。
-  setCellKeepStyle(ws,'P4',d.reiwa,false);
-  setCellKeepStyle(ws,'S4',d.month,false);
-  setCellKeepStyle(ws,'V4',d.day,false);
-  setCellKeepStyle(ws,'Z4',d.weekday,false);
+  // 訪問日
+  setExcelCell(ws,'P4',d.reiwa);
+  setExcelCell(ws,'S4',d.month);
+  setExcelCell(ws,'V4',d.day);
+  setExcelCell(ws,'Z4',d.weekday);
 
-  // 訪問時間：N5＝開始時、Q5＝開始分、T5＝終了時、W5＝終了分。
-  // Z5＝支援時間の合計（分）。AA5の「分」はテンプレートの表示をそのまま使用。
+  // 訪問時間
   var st=($('startTime')&&$('startTime').value)||'';
   var et=($('endTime')&&$('endTime').value)||'';
   var totalMinutes='';
+
   if(st){
     var sp=st.split(':');
-    setCellKeepStyle(ws,'N5',Number(sp[0]||0),false);
-    setCellKeepStyle(ws,'Q5',Number(sp[1]||0),false);
+    setExcelCell(ws,'N5',Number(sp[0]||0));
+    setExcelCell(ws,'Q5',Number(sp[1]||0));
   }
   if(et){
     var ep=et.split(':');
-    setCellKeepStyle(ws,'T5',Number(ep[0]||0),false);
-    setCellKeepStyle(ws,'W5',Number(ep[1]||0),false);
+    setExcelCell(ws,'T5',Number(ep[0]||0));
+    setExcelCell(ws,'W5',Number(ep[1]||0));
   }
-  if(st && et){
+  if(st&&et){
     var sm=st.split(':').map(Number), em=et.split(':').map(Number);
     var startMin=sm[0]*60+sm[1], endMin=em[0]*60+em[1];
-    if(endMin>=startMin) totalMinutes=endMin-startMin;
-    else totalMinutes=(24*60-startMin)+endMin;
+    totalMinutes=endMin>=startMin ? endMin-startMin : (24*60-startMin)+endMin;
   }
-  setCellKeepStyle(ws,'Z5',totalMinutes===''?'':totalMinutes,false);
-  setCellKeepStyle(ws,'AA5','分',false);
 
-  // 記録本文。上寄せ＋折り返しはテンプレート側に設定済み。
-  setCellKeepStyle(ws,'C8',$('school').value||'',false);
-  setCellKeepStyle(ws,'C16',$('direct').value||'',false);
-  setCellKeepStyle(ws,'D28',$('indirect').value||'',false);
+  // Z5＝支援時間の合計（分）、AA5＝「分」
+  setExcelCell(ws,'Z5',totalMinutes);
+  setExcelCell(ws,'AA5','分');
 
-  // 予備欄は空にする。
-  setCellKeepStyle(ws,'C11','',false);
-  setCellKeepStyle(ws,'C21','',false);
-  setCellKeepStyle(ws,'D34','',false);
+  // ①②③：結合セルの左上セルに書き込み、
+  // 「上寄せ＋折り返し」を明示的に設定。
+  setExcelCell(ws,'C8',$('school').value||'',{topWrap:true});
+  setExcelCell(ws,'C16',$('direct').value||'',{topWrap:true});
+  setExcelCell(ws,'D28',$('indirect').value||'',{topWrap:true});
 
-  var out=XLSX.write(wb,{bookType:'xlsx',type:'array',cellStyles:true,compression:true});
-  var blob=new Blob([out],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
-  var url=URL.createObjectURL(blob),a=document.createElement('a');
-  a.href=url;a.download=fileName();document.body.appendChild(a);a.click();a.remove();
+  // 予備欄
+  setExcelCell(ws,'C11','');
+  setExcelCell(ws,'C21','');
+  setExcelCell(ws,'D34','');
+
+  var out=await wb.xlsx.writeBuffer();
+  var blob=new Blob([out],{
+    type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+  });
+  var url=URL.createObjectURL(blob);
+  var a=document.createElement('a');
+  a.href=url;
+  a.download=fileName();
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
   setTimeout(function(){URL.revokeObjectURL(url)},2000);
+
   status('Excelを出力しました。ファイル名：'+fileName());
  }catch(e){
   console.error(e);
-  status('Excel出力でエラーが発生しました。テンプレートがGitHubにアップロードされているか確認してください。');
+  status('Excel出力でエラーが発生しました。通信状態とテンプレートを確認してください。');
  }
 }
 
