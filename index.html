@@ -191,7 +191,7 @@ function organize(){
  status("記録文として整理しました。内容を確認・修正してから保存してください。");
 }
 function saveRecord(){
- var r={id:editingId||Date.now(),child:$("child").value,date:$("date").value,memo:$("memo").value,school:$("school").value,direct:$("direct").value,indirect:$("indirect").value};
+ var r={id:editingId||Date.now(),child:$("child").value,date:$("date").value,startTime:$("startTime").value,endTime:$("endTime").value,memo:$("memo").value,school:$("school").value,direct:$("direct").value,indirect:$("indirect").value};
  var i=records.findIndex(function(x){return x.id===r.id});
  if(i>=0)records[i]=r;else records.unshift(r);
  persist();editingId=r.id;renderHistory();status("保存しました。")
@@ -211,7 +211,7 @@ function renderHistory(){
 }
 function load(id){
  var r=records.find(function(x){return x.id===id});if(!r)return;
- editingId=r.id;$("child").value=r.child;$("date").value=r.date;$("memo").value=r.memo||"";
+ editingId=r.id;$("child").value=r.child;$("date").value=r.date;$("startTime").value=r.startTime||"";$("endTime").value=r.endTime||"";$("memo").value=r.memo||"";
  $("school").value=r.school||"";$("direct").value=r.direct||"";$("indirect").value=r.indirect||"";
  show("recordPage");status("保存済み記録を開きました。")
 }
@@ -234,7 +234,7 @@ function deleteChild(){
  persist();renderChildren();newRecord();status("児童名と、その児童の記録を消去しました。")
 }
 function newRecord(){
- editingId=null;$("memo").value="";$("school").value="";$("direct").value="";$("indirect").value="";
+ editingId=null;$("memo").value="";$("school").value="";$("direct").value="";$("indirect").value="";$("startTime").value="";$("endTime").value="";
  $("date").value=new Date().toISOString().slice(0,10)
 }
 function voice(){
@@ -337,9 +337,24 @@ async function exportExcel(){
 
   // ①②③：結合セルの左上セルに書き込み、
   // 「上寄せ＋折り返し」を明示的に設定。
-  setExcelCell(ws,'C8',$('school').value||'',{topWrap:true});
-  setExcelCell(ws,'C16',$('direct').value||'',{topWrap:true});
-  setExcelCell(ws,'D28',$('indirect').value||'',{topWrap:true});
+  function writeMergedTopWrap(range, addr, value){
+    try{ ws.unMergeCells(range); }catch(e){}
+    var parts=range.split(':');
+    var start=ws.getCell(parts[0]), end=ws.getCell(parts[1]);
+    for(var row=start.row; row<=end.row; row++){
+      for(var col=start.col; col<=end.col; col++){
+        var c=ws.getCell(row,col);
+        c.alignment={vertical:'top',horizontal:'left',wrapText:true};
+      }
+    }
+    ws.mergeCells(range);
+    var c=ws.getCell(addr);
+    c.value=value||'';
+    c.alignment={vertical:'top',horizontal:'left',wrapText:true};
+  }
+  writeMergedTopWrap('C8:AK10','C8',$('school').value||'');
+  writeMergedTopWrap('C16:AK19','C16',$('direct').value||'');
+  writeMergedTopWrap('D28:AK33','D28',$('indirect').value||'');
 
   // 予備欄
   setExcelCell(ws,'C11','');
