@@ -337,45 +337,64 @@ async function exportExcel(){
 
   // ①②③：結合セルの左上セルに書き込み、
   // 「上寄せ＋折り返し」を明示的に設定。
-  // テンプレートに残っている旧結合を「個別に」解除する。
-  // 大きい範囲を指定して解除するだけでは、ExcelJSでは内部の旧結合が残る場合がある。
-  [
-    'C8:AK10','C11:AK13',
-    'C16:AK19','C21:AK25',
-    'D28:AK33','D34:AK37'
-  ].forEach(function(r){
-    try{ ws.unMergeCells(r); }catch(e){}
-  });
+  // ①②③の範囲に重なる「既存の結合」を、テンプレートの形に依存せず全部解除する。
+  function colNum(addr){
+    var m=String(addr).match(/^([A-Z]+)(\d+)$/i);
+    var n=0, letters=m[1].toUpperCase();
+    for(var i=0;i<letters.length;i++) n=n*26+(letters.charCodeAt(i)-64);
+    return {col:n,row:Number(m[2])};
+  }
+  function overlaps(a,b){
+    return !(a.c2<b.c1 || a.c1>b.c2 || a.r2<b.r1 || a.r1>b.r2);
+  }
+  function rect(range){
+    var p=range.split(':');
+    var a=colNum(p[0]), b=colNum(p[1]||p[0]);
+    return {c1:Math.min(a.col,b.col),c2:Math.max(a.col,b.col),
+            r1:Math.min(a.row,b.row),r2:Math.max(a.row,b.row)};
+  }
+  function unmergeOverlapping(targetRange){
+    var target=rect(targetRange);
+    var merges=[];
+    // ExcelJSの現在の結合一覧を取得。キーは結合の左上セル。
+    if(ws._merges){
+      Object.keys(ws._merges).forEach(function(key){
+        var model=ws._merges[key] && ws._merges[key].model;
+        if(model){
+          var r={c1:model.left,c2:model.right,r1:model.top,r2:model.bottom};
+          if(overlaps(target,r)) merges.push(key);
+        }
+      });
+    }
+    merges.forEach(function(master){
+      try{ ws.unMergeCells(master); }catch(e){ console.warn('unmerge',master,e); }
+    });
+  }
 
   function writeMergedTopWrap(range, addr, value){
+    unmergeOverlapping(range);
+
     var parts=range.split(':');
     var start=ws.getCell(parts[0]), end=ws.getCell(parts[1]);
 
-    // 旧テンプレート由来の文字・「・」等を完全に消してから新しく結合する。
+    // 新しい結合範囲内の旧文字・「・」を消去。
     for(var row=start.row; row<=end.row; row++){
       for(var col=start.col; col<=end.col; col++){
         var cell=ws.getCell(row,col);
         cell.value=null;
-        cell.alignment={vertical:'top',horizontal:'left',wrapText:true};
       }
     }
 
-    try{ ws.unMergeCells(range); }catch(e){}
     ws.mergeCells(range);
-
     var c=ws.getCell(addr);
     c.value=value||'';
     c.alignment={vertical:'top',horizontal:'left',wrapText:true};
     c.font=Object.assign({},c.font||{},{color:{argb:'FF000000'}});
   }
+
   writeMergedTopWrap('C8:AK13','C8',$('school').value||'');
   writeMergedTopWrap('C16:AK25','C16',$('direct').value||'');
   writeMergedTopWrap('C28:AK37','C28',$('indirect').value||'');
-  // ①②③の文字色を黒に統一
-  ['C8','C16','C28'].forEach(function(addr){
-    var c=ws.getCell(addr);
-    c.font=Object.assign({},c.font||{},{color:{argb:'FF000000'}});
-  });
 
 
   var out=await wb.xlsx.writeBuffer();
