@@ -125,71 +125,42 @@ function show(id){
  ["recordPage","historyPage","settingsPage"].forEach(function(x){$(x).classList.add("hidden")});
  $(id).classList.remove("hidden")
 }
-function split(t){
- return t.replace(/\r/g,"").split(/(?<=[。！？\n])/).map(function(x){return x.trim()}).filter(Boolean)
+function normalizeMarkerText(t){
+ return (t||"")
+  .replace(/(?:丸|まる|○|◯)\s*[１1一]/g,"①")
+  .replace(/(?:丸|まる|○|◯)\s*[２2二]/g,"②")
+  .replace(/(?:丸|まる|○|◯)\s*[３3三]/g,"③");
 }
-function normalizeRecordSentence(s){
- var x=s.trim();
-
- // 会話調を記録調へ。意味や事実は追加しない。
- x=x.replace(/個別に声をかけると、/g,"個別に声をかけ、");
- x=x.replace(/声をかけると、/g,"声をかけ、");
- x=x.replace(/声を掛けると、/g,"声をかけ、");
- x=x.replace(/確認することができた。?$/g,"確認した。");
- x=x.replace(/確認することができた$/g,"確認した");
- x=x.replace(/できました。?$/g,"できた。");
- x=x.replace(/と聞いた。?$/g,"とのこと。");
- x=x.replace(/と聞いた$/g,"とのこと");
- return x;
+function simpleSentences(t){
+ return (t||"").replace(/\r/g,"").split(/(?<=[。！？\n])/)
+  .map(function(x){return x.trim()}).filter(Boolean);
 }
-
-function classifyRecordSentence(s){
- var t=s.trim();
-
- // まず「担任等との相談・情報共有」は③。
- var indirect=/(担任|教師|先生|保育士|学校側|園側|保護者).*(話し合|相談|情報共有|共有|助言|伝え|方針|対応方法|環境調整)|((話し合|相談|情報共有|共有|助言|対応方法|環境調整|今後の支援方針).*(担任|教師|先生|保育士|学校|園|保護者))/;
- if(indirect.test(t)) return "indirect";
-
- // 「本人への声かけ・説明・援助・確認」は②。
- var direct=/(本人|児童|子ども|本人に|本人と|個別に).*(声をかけ|声掛け|説明|促し|支援|援助|手伝|一緒に|確認|介入)|((個別に声|声をかけ|声掛け|説明|促し|援助|一緒に確認).*(予定|活動|課題|本人|児童|子ども))/;
- if(direct.test(t)) return "direct";
-
- // それ以外は観察・学校生活の様子として①。
- return "school";
+function simpleClassify(t){
+ if(/(担任|先生|教師|保育士|職員).*(話し合|相談|共有|助言|提案|情報|確認|聞いた|伝えた)|((話し合|相談|共有|助言|提案|情報共有).*(担任|先生|教師|保育士|職員))/.test(t)) return "3";
+ if(/(声をかけ|声掛け|促した|説明した|一緒に|個別に|本人に.*確認|本人と.*確認|支援した|援助した|手伝った)/.test(t)) return "2";
+ return "1";
 }
-
 function organize(){
- var t=$("memo").value.trim();
- if(!t){status("まずメモを入力してください。");return}
-
- var a=[],b=[],c=[];
- split(t).forEach(function(raw){
-  var s=normalizeRecordSentence(raw);
-  if(!s)return;
-
-  // 1文の中に「本人への直接支援」→「担任との話し合い」が
-  // 続けて書かれている場合は、接続部分で分ける。
-  var parts=s.split(/(?=その後|そのうえで|続いて|また、)(?=その後|そのうえで|続いて|また、)/);
-  if(parts.length===1){
-   var m=s.match(/^(.*?)(?:。)(その後|そのうえで|続いて|また、)(.*)$/);
-   if(m) parts=[m[1]+"。",m[2]+m[3]];
+ var raw=$("memo").value.trim();
+ if(!raw){status("まずメモを入力してください。");return;}
+ var t=normalizeMarkerText(raw), b={"1":[],"2":[],"3":[]};
+ var re=/[①②③]/g, ms=[],m;
+ while((m=re.exec(t))!==null) ms.push({mark:m[0],index:m.index,end:re.lastIndex});
+ if(ms.length){
+  for(var i=0;i<ms.length;i++){
+   var body=t.slice(ms[i].end,i+1<ms.length?ms[i+1].index:t.length).replace(/^[：:、。\s]+/,"").trim();
+   if(!body) continue;
+   b[ms[i].mark==="①"?"1":ms[i].mark==="②"?"2":"3"].push(body);
   }
-
-  parts.forEach(function(p){
-   p=p.trim();
-   if(!p)return;
-   var type=classifyRecordSentence(p);
-   if(type==="indirect")c.push(p);
-   else if(type==="direct")b.push(p);
-   else a.push(p);
-  });
- });
-
- $("school").value=[...new Set(a)].join("\n");
- $("direct").value=[...new Set(b)].join("\n");
- $("indirect").value=[...new Set(c)].join("\n");
- status("記録文として整理しました。内容を確認・修正してから保存してください。");
+ }else{
+  simpleSentences(t).forEach(function(x){b[simpleClassify(x)].push(x);});
+ }
+ $("school").value=b["1"].join("\n");
+ $("direct").value=b["2"].join("\n");
+ $("indirect").value=b["3"].join("\n");
+ status("①②③へ振り分けました。内容を確認・修正してください。");
 }
+
 function saveRecord(){
  var r={id:editingId||Date.now(),child:$("child").value,date:$("date").value,startTime:$("startTime").value,endTime:$("endTime").value,memo:$("memo").value,school:$("school").value,direct:$("direct").value,indirect:$("indirect").value};
  var i=records.findIndex(function(x){return x.id===r.id});
